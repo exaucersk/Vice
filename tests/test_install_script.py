@@ -330,8 +330,15 @@ class GsrUpgradeTests(unittest.TestCase):
         cls.functions = "\n".join(parts)
 
     def _run(self, *, installed: str, libavutil: str = "59.39.100", packaged: bool = False):
+        import os
+        import shutil
         import subprocess
         import tempfile
+        # Build sandboxes such as Nix have no /usr/bin, so bash and coreutils
+        # come from the inherited PATH, behind the fakes (#233).
+        bash = shutil.which("bash")
+        if bash is None:
+            self.skipTest("bash is not installed")
         with tempfile.TemporaryDirectory() as tmp:
             bin_dir = Path(tmp)
             fakes = {
@@ -341,7 +348,7 @@ class GsrUpgradeTests(unittest.TestCase):
             }
             for name, body in fakes.items():
                 path = bin_dir / name
-                path.write_text(f"#!/bin/sh\n{body}\n")
+                path.write_text(f"#!{bash}\n{body}\n")
                 path.chmod(0o755)
             harness = (
                 "info() { echo \"INFO $*\"; }\nwarn() { echo \"WARN $*\"; }\n"
@@ -350,8 +357,8 @@ class GsrUpgradeTests(unittest.TestCase):
                 f"{self.functions}\nPKG=apt\ninstall_gpu_screen_recorder\n"
             )
             result = subprocess.run(
-                ["bash", "-c", harness], capture_output=True, text=True, timeout=10,
-                env={"PATH": f"{bin_dir}:/usr/bin:/bin"},
+                [bash, "-c", harness], capture_output=True, text=True, timeout=10,
+                env={"PATH": os.pathsep.join([str(bin_dir), os.environ.get("PATH", os.defpath)])},
             )
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
