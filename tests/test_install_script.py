@@ -313,23 +313,31 @@ if __name__ == "__main__":
 class GsrUpgradeTests(unittest.TestCase):
     """Rerunning install.sh has to bring an old source-built gpu-screen-recorder
     up to date: 6.1.2 hardened its privileged helper, and 5.13.3 wrote broken
-    MP4s on Debian 13 (#154). A packaged one is its package manager's job."""
+    MP4s on Debian 13 (#154). A packaged one is its package manager's job.
+
+    The harness runs under the script's own ``set -euo pipefail``. Without it a
+    failing command substitution passed here and ended the real script with no
+    message (#236)."""
 
     FUNCTIONS = ("_gsr_libavutil_major", "_gsr_select_ref", "_gsr_installed_version",
-                 "_version_lt", "_gsr_owned_by_package", "install_gpu_screen_recorder")
+                 "_gsr_cannot_load", "_version_lt", "_gsr_owned_by_package",
+                 "install_gpu_screen_recorder")
 
     @classmethod
     def setUpClass(cls) -> None:
         script = INSTALL_SH.read_text()
+        cls.strict = re.search(r"^set -[a-z]+ pipefail$", script, re.M).group(0)
         parts = [re.search(r"^GSR_DEFAULT_REF=.*$", script, re.M).group(0),
                  re.search(r"^GSR_FFMPEG4_REF=.*$", script, re.M).group(0)]
         for name in cls.FUNCTIONS:
             match = re.search(rf"^{name}\(\) \{{\n.*?^\}}$", script, re.S | re.M)
-            assert match, name
-            parts.append(match.group(0))
+            if match:
+                parts.append(match.group(0))
         cls.functions = "\n".join(parts)
 
-    def _run(self, *, installed: str, libavutil: str = "59.39.100", packaged: bool = False):
+    def _exec(self, *, installed: str = "6.1.3", libavutil: str = "59.39.100",
+              packaged: bool = False, broken: bool = False, build_ok: bool = True,
+              version_fails: bool = False):
         import os
         import shutil
         import subprocess
@@ -341,26 +349,38 @@ class GsrUpgradeTests(unittest.TestCase):
             self.skipTest("bash is not installed")
         with tempfile.TemporaryDirectory() as tmp:
             bin_dir = Path(tmp)
+            fixed = bin_dir / "rebuilt"
+            gsr = (f"echo 'error while loading shared libraries: libavcodec.so.61' >&2; exit 127"
+                   if broken else ("exit 1" if version_fails else f"echo '{installed}'"))
             fakes = {
-                "gpu-screen-recorder": f"echo '{installed}'",
+                "gpu-screen-recorder": gsr,
                 "pkg-config": f"echo '{libavutil}'",
                 "dpkg": "exit 0" if packaged else "exit 1",
+                # Reports a missing library until the fake rebuild has run.
+                "ldd": (f"[ -e '{fixed}' ] || {{ echo 'libavcodec.so.61 => not found'; }}"
+                        if broken else "true"),
             }
             for name, body in fakes.items():
                 path = bin_dir / name
                 path.write_text(f"#!{bash}\n{body}\n")
                 path.chmod(0o755)
+            build = f"echo BUILD; touch '{fixed}'" if build_ok else "echo BUILD; return 1"
             harness = (
+                f"{self.strict}\n"
                 "info() { echo \"INFO $*\"; }\nwarn() { echo \"WARN $*\"; }\n"
                 "error() { echo \"ERROR $*\"; }\n"
-                "_gsr_build_from_source() { echo BUILD; }\n"
-                f"{self.functions}\nPKG=apt\ninstall_gpu_screen_recorder\n"
+                f"_gsr_build_from_source() {{ {build}; }}\n"
+                f"{self.functions}\nPKG=apt\ninstall_gpu_screen_recorder\necho FINISHED\n"
             )
-            result = subprocess.run(
+            return subprocess.run(
                 [bash, "-c", harness], capture_output=True, text=True, timeout=10,
                 env={"PATH": os.pathsep.join([str(bin_dir), os.environ.get("PATH", os.defpath)])},
             )
-        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def _run(self, **kwargs) -> str:
+        result = self._exec(**kwargs)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("FINISHED", result.stdout)
         return result.stdout
 
     def test_an_old_source_build_is_rebuilt_at_the_pinned_tag(self) -> None:
@@ -383,6 +403,28 @@ class GsrUpgradeTests(unittest.TestCase):
         out = self._run(installed="")
         self.assertNotIn("BUILD", out)
         self.assertNotIn("WARN", out)
+
+    def test_a_binary_that_will_not_run_never_ends_the_script_silently(self) -> None:
+        out = self._run(version_fails=True)
+        self.assertNotIn("BUILD", out)
+
+    def test_a_source_build_broken_by_an_upgrade_is_rebuilt(self) -> None:
+        # #236: Pop!_OS 24.04 to 26.04 replaced the FFmpeg it was built against.
+        out = self._run(broken=True)
+        self.assertIn("cannot load its libraries", out)
+        self.assertIn("BUILD", out)
+        self.assertIn("rebuilt", out)
+
+    def test_a_broken_packaged_build_says_to_reinstall_it(self) -> None:
+        result = self._exec(broken=True, packaged=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertNotIn("BUILD", result.stdout)
+        self.assertIn("Reinstall it with your package manager", result.stdout)
+
+    def test_a_failed_rebuild_stops_with_a_reason(self) -> None:
+        result = self._exec(broken=True, build_ok=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Could not rebuild gpu-screen-recorder", result.stdout)
 
     def test_ffmpeg_4_keeps_the_last_tag_that_builds_there(self) -> None:
         # Ubuntu 22.04: 6.1.3 fails to compile against FFmpeg 4.4.

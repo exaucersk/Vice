@@ -568,8 +568,16 @@ _gsr_build_from_source() {
     rm -rf "$tmpdir" 2>/dev/null || sudo rm -rf "$tmpdir"
 }
 
+# Empty rather than failing when the binary will not run: under set -e a
+# failing assignment ends the whole script without a word (#236).
 _gsr_installed_version() {
-    gpu-screen-recorder --version 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1
+    { gpu-screen-recorder --version 2>/dev/null || true; } | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1 || true
+}
+
+# True when the dynamic loader cannot find a library the binary needs, which is
+# what a distro upgrade does to a source build when it replaces FFmpeg (#236).
+_gsr_cannot_load() {
+    command -v ldd &>/dev/null && ldd "$1" 2>/dev/null | grep -q "not found"
 }
 
 # True when $1 is a strictly older version than $2.
@@ -594,6 +602,20 @@ install_gpu_screen_recorder() {
     if command -v gpu-screen-recorder &>/dev/null; then
         local bin have want
         bin="$(command -v gpu-screen-recorder)"
+        if _gsr_cannot_load "$bin"; then
+            if _gsr_owned_by_package "$bin"; then
+                error "gpu-screen-recorder at $bin cannot load its libraries, usually after a system upgrade."
+                error "Reinstall it with your package manager, then run this script again."
+                exit 1
+            fi
+            info "gpu-screen-recorder at $bin cannot load its libraries, usually after a system upgrade. Rebuilding it..."
+            if ! _gsr_build_from_source || _gsr_cannot_load "$(command -v gpu-screen-recorder)"; then
+                error "Could not rebuild gpu-screen-recorder; see the error above."
+                exit 1
+            fi
+            info "gpu-screen-recorder rebuilt: $(_gsr_installed_version)"
+            return 0
+        fi
         have="$(_gsr_installed_version)"
         want="$(_gsr_select_ref)"
         # An unreadable version is no opinion: leave it exactly as it was.
