@@ -13,7 +13,7 @@ to the repository.
 **1. Start the file.**
 
 ```bash
-git clone https://github.com/eklonofficial/Vice
+git clone https://github.com/splitshotz/Vice
 cd Vice
 npm install
 npm run i18n:new -- pt-BR

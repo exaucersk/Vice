@@ -6,12 +6,12 @@
   "type": "commonjs",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/eklonofficial/Vice.git"
+    "url": "git+https://github.com/splitshotz/Vice.git"
   },
   "bugs": {
-    "url": "https://github.com/eklonofficial/Vice/issues"
+    "url": "https://github.com/splitshotz/Vice/issues"
   },
-  "homepage": "https://github.com/eklonofficial/Vice#readme",
+  "homepage": "https://github.com/splitshotz/Vice#readme",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",

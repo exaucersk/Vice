@@ -54,7 +54,7 @@ The package ships the service but does not enable it for you, so run that second
 **Ubuntu / Debian / Mint / Fedora / openSUSE / other:**
 
 ```bash
-git clone https://github.com/eklonofficial/Vice && cd Vice && ./install.sh
+git clone https://github.com/splitshotz/Vice && cd Vice && ./install.sh
 ```
 
 Launch **Vice** from your app menu (or run `vice-app`) and press **F9** in a game. If the terminal says `vice: command not found`, restart the terminal first.
@@ -68,7 +68,7 @@ Both paths install everything Vice needs, including the `gpu-screen-recorder` ca
 
 > Don't mix the AUR package and `./install.sh` on the same machine. Uninstall one before switching.
 
-**Bazzite / Fedora Atomic:** not supported yet. rpm-ostree systems can't use `install.sh`, and the installer exits early on them rather than breaking your system. A Flatpak will fix this; follow [#97](https://github.com/eklonofficial/Vice/issues/97).
+**Bazzite / Fedora Atomic:** not supported yet. rpm-ostree systems can't use `install.sh`, and the installer exits early on them rather than breaking your system. A Flatpak will fix this; follow [#97](https://github.com/splitshotz/Vice/issues/97).
 
 ---
 
@@ -327,17 +327,17 @@ changes under you.
 
 ## Star History
 
-<a href="https://www.star-history.com/?repos=eklonofficial%2Fvice&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=splitshotz%2Fvice&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=eklonofficial/vice&type=date&theme=dark&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=eklonofficial/vice&type=date&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=eklonofficial/vice&type=date&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=splitshotz/vice&type=date&theme=dark&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=splitshotz/vice&type=date&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=splitshotz/vice&type=date&legend=top-left&sealed_token=q4Al9ZHwYaJsJq_eF6WMPso4JzjrTOsIlnqq5f5CIXvPatTvO5cvdGaGOmxnYcMXHfJupaXOf48O9K14VydKxRtMsWglltcaS9VejIrQN5MCMELpQ8-PqcTXJPfQxDpJavne5W5eg1KJi5vWZ6hCRl956ykEOG4JOWSIVcMYZg9IVnk94cmhVlLmJLGW" />
  </picture>
 </a>
 
 ## Credits
 
-Created by **Andrew Marin** ([github.com/eklonofficial](https://github.com/eklonofficial)). Bug reports and PRs welcome.
+Created by **Andrew Marin** ([github.com/splitshotz](https://github.com/splitshotz)). Bug reports and PRs welcome.
 
 Vice is better because these people sent patches:
 
