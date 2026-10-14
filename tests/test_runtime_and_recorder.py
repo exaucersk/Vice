@@ -3048,6 +3048,48 @@ class ClipNameTemplateTests(unittest.TestCase):
 
             self.assertEqual(_next_clip_path(out, template="Rec-$n").name, "Rec-8.mp4")
 
+    def test_numbering_carries_on_when_the_minute_changes(self) -> None:
+        # #243: $n restarted at 1 for every new minute of $time.
+        from datetime import datetime
+        from vice.recorder import _next_templated_path
+        template = "clip_$n_$game_$date_$time"
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            names = []
+            for minute, game in ((5, "CS2"), (6, "CS2"), (7, "Deep-Rock-Galactic"), (8, None)):
+                now = datetime(2026, 10, 11, 13, minute)
+                path = _next_templated_path(out, template, "mp4", game, now)
+                path.touch()
+                names.append(path.name)
+
+            self.assertEqual(names, [
+                "clip_1_CS2_2026-10-11_1305.mp4",
+                "clip_2_CS2_2026-10-11_1306.mp4",
+                "clip_3_Deep-Rock-Galactic_2026-10-11_1307.mp4",
+                "clip_4_2026-10-11_1308.mp4",
+            ])
+
+    def test_numbering_carries_on_across_days(self) -> None:
+        from datetime import datetime
+        from vice.recorder import _next_templated_path
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            (out / "Rec-2026-10-10-4.mp4").touch()
+            path = _next_templated_path(out, "Rec-$date-$n", "mp4", None, datetime(2026, 10, 11, 9, 0))
+
+            self.assertEqual(path.name, "Rec-2026-10-11-5.mp4")
+
+    def test_numbering_ignores_clips_another_template_named(self) -> None:
+        from datetime import datetime
+        from vice.recorder import _next_templated_path
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            for name in ("Vice_Clip_9.mp4", "other_7_2026-10-11.mp4", "clip_3_notes.txt"):
+                (out / name).touch()
+            path = _next_templated_path(out, "clip_$n_$date", "mp4", None, datetime(2026, 10, 11, 9, 0))
+
+            self.assertEqual(path.name, "clip_1_2026-10-11.mp4")
+
     def test_template_without_number_never_overwrites(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)

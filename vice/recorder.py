@@ -1703,6 +1703,43 @@ def _render_clip_name(template: str, n: int, game: Optional[str], now: datetime)
     return _sanitize_clip_name(rendered)
 
 
+# Private-use codepoints stand in for each token while the template is
+# sanitized: they survive it and cannot occur in a real filename.
+_TOKEN_MARKERS = {"$n": "\ue000", "$date": "\ue001", "$time": "\ue002", "$game": "\ue003"}
+_MARKER_PATTERNS = {
+    "\ue000": r"(\d+)",
+    "\ue001": r"\d{4}-\d{2}-\d{2}",
+    "\ue002": r"\d{4}",
+    "\ue003": r".*?",
+}
+
+
+def _template_number_pattern(template: str) -> Optional[re.Pattern]:
+    """Matches any clip this template has named, capturing its $n.
+
+    Date, time and game match whatever they were when that clip was saved, so
+    the count carries on across minutes, days and games. Matching the current
+    values instead restarted $n at 1 every minute (#243). Separator runs are
+    loose because sanitizing collapses the ones an empty $game leaves behind.
+    """
+    skeleton = template
+    for token, marker in _TOKEN_MARKERS.items():
+        skeleton = skeleton.replace(token, marker)
+    skeleton = _sanitize_clip_name(skeleton)
+    if _TOKEN_MARKERS["$n"] not in skeleton:
+        return None
+    parts: list[str] = []
+    for char in skeleton:
+        if char in _MARKER_PATTERNS:
+            parts.append(_MARKER_PATTERNS[char])
+        elif char in "_-":
+            if not parts or parts[-1] != "[_-]*":
+                parts.append("[_-]*")
+        else:
+            parts.append(re.escape(char))
+    return re.compile("^[_-]*" + "".join(parts) + r"[_-]*\.(?:mp4|mkv)$")
+
+
 def _next_templated_path(
     out_dir: Path, template: str, ext: str, tag: Optional[str], now: datetime
 ) -> Optional[Path]:
@@ -1717,17 +1754,9 @@ def _next_templated_path(
 
     n = 1
     if "$n" in template:
-        # Build a matcher from the template so numbering survives a change to
-        # anything around $n. The marker is a private-use codepoint: it lives
-        # through sanitizing and cannot occur in a real filename.
-        placeholder = ""
-        literal = _render_clip_name(template.replace("$n", placeholder), 0, tag, now)
-        if placeholder not in literal:
+        pattern = _template_number_pattern(template)
+        if pattern is None:
             return None
-        pattern = re.compile(
-            "^" + r"(\d+)".join(re.escape(p) for p in literal.split(placeholder))
-            + r"\.(?:mp4|mkv)$"
-        )
         max_n = 0
         for f in out_dir.glob("*"):
             m = pattern.match(f.name)
