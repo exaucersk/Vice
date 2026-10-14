@@ -111,6 +111,15 @@ class RecorderStartupFailureTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(daemon._get_status()["cpu_fallback"])
 
+    def test_status_names_why_it_fell_back_to_the_cpu(self) -> None:
+        recorder = _StubRecorder()
+        recorder.cpu_fallback = True
+        recorder.cpu_fallback_reason = {"kind": "nvenc_api", "driver": "13.0", "required": "13.1"}
+        daemon = _startup_daemon(recorder)
+        daemon._ready = True
+
+        self.assertEqual(daemon._get_status()["cpu_fallback_reason"]["required"], "13.1")
+
     async def test_watchdog_recovery_clears_the_error(self) -> None:
         recorder = _StubRecorder(error="gsr error: Could not open video codec")
         daemon = _startup_daemon(recorder)

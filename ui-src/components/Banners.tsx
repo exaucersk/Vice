@@ -32,7 +32,14 @@ export function Banners() {
       {status.cpu_fallback && showing('cpu') ? (
         <Banner tone="warning" onDismiss={dismiss('cpu')}>
           <strong>{t('banners.cpuFallback')}</strong>
-          <span>{t('banners.cpuFallbackHelp')}</span>
+          <span>
+            {status.cpu_fallback_reason?.kind === 'nvenc_api'
+              ? t('banners.cpuFallbackNvencApi', {
+                  driver: status.cpu_fallback_reason.driver,
+                  required: status.cpu_fallback_reason.required,
+                })
+              : t('banners.cpuFallbackHelp')}
+          </span>
         </Banner>
       ) : null}
 

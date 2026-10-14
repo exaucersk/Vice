@@ -357,6 +357,7 @@ class ViceDaemon:
                     "hotkeys_available": self.hotkeys_available,
                     "recorder_error": self._recorder_error,
                     "cpu_fallback": bool(getattr(self.recorder, "cpu_fallback", False)),
+                    "cpu_fallback_reason": getattr(self.recorder, "cpu_fallback_reason", None),
                     "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
                 })
             )
@@ -406,6 +407,7 @@ class ViceDaemon:
                     "hotkeys_available": available,
                     "recorder_error": self._recorder_error,
                     "cpu_fallback": bool(getattr(self.recorder, "cpu_fallback", False)),
+                    "cpu_fallback_reason": getattr(self.recorder, "cpu_fallback_reason", None),
                     "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
                 })
             )
@@ -444,6 +446,7 @@ class ViceDaemon:
                     "hotkeys_available": self.hotkeys_available,
                     "recorder_error": self._recorder_error,
                     "cpu_fallback": bool(getattr(self.recorder, "cpu_fallback", False)),
+                    "cpu_fallback_reason": getattr(self.recorder, "cpu_fallback_reason", None),
                     "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
                 })
             )
@@ -460,6 +463,7 @@ class ViceDaemon:
                 "hotkeys_available": self.hotkeys_available,
                 "recorder_error": self._recorder_error,
                 "cpu_fallback": bool(getattr(self.recorder, "cpu_fallback", False)),
+                "cpu_fallback_reason": getattr(self.recorder, "cpu_fallback_reason", None),
                 "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
                 "disk": self._disk_stats(),
             })
@@ -816,6 +820,7 @@ class ViceDaemon:
                     "hotkeys_available": self.hotkeys_available,
                     "recorder_error": self._recorder_error,
                     "cpu_fallback": bool(getattr(self.recorder, "cpu_fallback", False)),
+                    "cpu_fallback_reason": getattr(self.recorder, "cpu_fallback_reason", None),
                     "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
                 })
 
@@ -1097,6 +1102,7 @@ class ViceDaemon:
             "recording":      self._ready,
             "recorder_error": self._recorder_error,
             "cpu_fallback":   bool(getattr(self.recorder, "cpu_fallback", False)),
+            "cpu_fallback_reason":   getattr(self.recorder, "cpu_fallback_reason", None),
             "codec_fallback": bool(getattr(self.recorder, "codec_fallback", False)),
             "backend":          self.recorder.name,
             "clips":            self._clips_in_library(),

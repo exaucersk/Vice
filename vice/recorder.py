@@ -264,6 +264,29 @@ def _gsr_supported_codecs() -> frozenset[str]:
     return frozenset(codecs)
 
 
+_NVENC_API_MISMATCH = re.compile(
+    r"only supports nvenc api version (\d+(?:\.\d+)*).*?requires nvenc api version (\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+
+
+def _gsr_nvenc_api_mismatch() -> Optional[dict]:
+    """The NVENC API versions, when GSR says the driver is too old for its FFmpeg.
+
+    FFmpeg 9 needs NVENC API 13.1, which needs driver 610, and the 580 branch
+    is the last one for Maxwell and Pascal cards (#206, #247). A reboot does
+    not fix that, so the CPU fallback has to say so. None means no mismatch,
+    or GSR could not be asked.
+    """
+    if not _has("gpu-screen-recorder"):
+        return None
+    _, out = _run_command_capture(["gpu-screen-recorder", "--info"], timeout=5.0)
+    found = _NVENC_API_MISMATCH.search(out or "")
+    if not found:
+        return None
+    return {"kind": "nvenc_api", "driver": found.group(1), "required": found.group(2)}
+
+
 def _gsr_codec_unsupported(codec: Optional[str]) -> bool:
     """Whether GSR has told us this -k value will not work on this GPU."""
     if not codec:
@@ -2153,6 +2176,7 @@ class GSRRecorder(Recorder):
         # took over. Never persisted, every start tries the GPU first, so a
         # driver that gets fixed is picked up without the user doing anything.
         self.cpu_fallback = False
+        self.cpu_fallback_reason: Optional[dict] = None
         # Set when the configured codec would not open and GSR was left to
         # pick one. Still GPU encoding, so it is worth telling the user apart
         # from the CPU fallback (#156).
@@ -2237,6 +2261,7 @@ class GSRRecorder(Recorder):
     async def start(self) -> None:
         self._running = True
         self.cpu_fallback = False
+        self.cpu_fallback_reason = None
         self.codec_fallback = False
         self._stderr_info_budget = 40
 
@@ -2267,14 +2292,23 @@ class GSRRecorder(Recorder):
                 detail = retry_detail
 
         if detail is not None and _looks_like_encoder_failure(detail) and _gsr_supports_flag("-encoder"):
-            log.warning(
-                "The GPU encoder would not open (%s). Retrying on CPU. "
-                "This is usually a driver that needs a reboot after an update.",
-                detail,
-            )
+            mismatch = await asyncio.to_thread(_gsr_nvenc_api_mismatch)
+            if mismatch:
+                log.warning(
+                    "The GPU encoder would not open (%s). The NVIDIA driver supports "
+                    "NVENC API %s but this FFmpeg needs %s, so retrying on CPU.",
+                    detail, mismatch["driver"], mismatch["required"],
+                )
+            else:
+                log.warning(
+                    "The GPU encoder would not open (%s). Retrying on CPU. "
+                    "This is usually a driver that needs a reboot after an update.",
+                    detail,
+                )
             retry_detail = await self._try_start(cpu_encoder=True)
             if retry_detail is None:
                 self.cpu_fallback = True
+                self.cpu_fallback_reason = mismatch
                 detail = None
             else:
                 log.error("CPU encoding did not work either: %s", retry_detail)

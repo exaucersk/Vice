@@ -86,6 +86,8 @@ export interface Status {
   ready: boolean;
   recorder_error: string | null;
   cpu_fallback: boolean;
+  /** Why the GPU encoder would not open, when Vice can tell (#247). */
+  cpu_fallback_reason?: {kind: 'nvenc_api'; driver: string; required: string} | null;
   codec_fallback: boolean;
   /** Where clips land. Absent when the drive could not be measured. */
   disk?: {free: number; total: number} | null;

@@ -1386,12 +1386,47 @@ class GSRStartFallbackTests(unittest.IsolatedAsyncioTestCase):
             return "gsr error: Could not open video codec"
         return fake_try_start
 
-    async def _run(self, recorder, fake_try_start, supported):
-        with mock.patch("vice.recorder._gsr_supported_codecs", return_value=supported):
-            with mock.patch("vice.recorder._gsr_supports_flag", return_value=True):
-                with mock.patch.object(recorder, "_try_start", side_effect=fake_try_start):
-                    with mock.patch.object(recorder, "_stderr_reader", new=_no_stderr_reader):
-                        await recorder.start()
+    async def _run(self, recorder, fake_try_start, supported, mismatch=None):
+        with mock.patch("vice.recorder._gsr_supported_codecs", return_value=supported), \
+             mock.patch("vice.recorder._gsr_nvenc_api_mismatch", return_value=mismatch), \
+             mock.patch("vice.recorder._gsr_supports_flag", return_value=True), \
+             mock.patch.object(recorder, "_try_start", side_effect=fake_try_start), \
+             mock.patch.object(recorder, "_stderr_reader", new=_no_stderr_reader):
+            await recorder.start()
+
+    async def test_a_driver_too_old_for_ffmpeg_is_named_as_the_cause(self) -> None:
+        # #247: a GTX 970 on the 580 driver against Arch's FFmpeg 9.
+        recorder = self._recorder()
+        mismatch = {"kind": "nvenc_api", "driver": "13.0", "required": "13.1"}
+        await self._run(recorder, self._tracker([], lambda cpu, avoid: cpu), frozenset(), mismatch)
+
+        self.assertTrue(recorder.cpu_fallback)
+        self.assertEqual(recorder.cpu_fallback_reason, mismatch)
+
+    async def test_an_ordinary_cpu_fallback_carries_no_reason(self) -> None:
+        recorder = self._recorder()
+        await self._run(recorder, self._tracker([], lambda cpu, avoid: cpu), frozenset())
+
+        self.assertTrue(recorder.cpu_fallback)
+        self.assertIsNone(recorder.cpu_fallback_reason)
+
+    def test_the_nvenc_api_warning_is_read_from_gsr_info(self) -> None:
+        # Verbatim from gpu-screen-recorder 6.1.0 --info in #206.
+        info = (
+            "section=video_codecs\n"
+            "gsr warning: gsr_get_supported_video_codecs_nvenc: your nvidia driver only "
+            "supports nvenc api version 13.0, but the FFmpeg version that GPU Screen "
+            "Recorder uses requires nvenc api version 13.1. Update your nvidia driver "
+            "or use an older FFmpeg version to record with nvenc\nh264_software\n"
+        )
+        from vice.recorder import _gsr_nvenc_api_mismatch
+        with mock.patch("vice.recorder._has", return_value=True), \
+             mock.patch("vice.recorder._run_command_capture", return_value=(0, info)):
+            self.assertEqual(_gsr_nvenc_api_mismatch(),
+                             {"kind": "nvenc_api", "driver": "13.0", "required": "13.1"})
+        with mock.patch("vice.recorder._has", return_value=True), \
+             mock.patch("vice.recorder._run_command_capture", return_value=(0, "section=video_codecs\nh264\n")):
+            self.assertIsNone(_gsr_nvenc_api_mismatch())
 
     async def test_another_codec_is_tried_before_the_cpu(self) -> None:
         recorder = self._recorder()
