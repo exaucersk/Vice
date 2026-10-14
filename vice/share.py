@@ -1195,6 +1195,13 @@ class ShareServer:
         meta = await self._get_meta(slug, path)
         if not _thumb_path(path).exists():
             await _make_thumb(path, duration=meta.get("duration", 0))
+        # A rename or delete can land while the probe runs, as when a trim
+        # saves and the dialog applies its new name straight after. That path
+        # is gone by now, so announcing it would put an unreadable copy of
+        # the old name back in the gallery (#246).
+        if self._clips.get(slug) != path or not path.exists():
+            self._meta.pop(slug, None)
+            return
         await self.broadcast({"type": "clip_saved", "clip": self._clip_json(slug, path, meta)})
 
     async def _get_meta(self, slug: str, path: Path) -> dict:

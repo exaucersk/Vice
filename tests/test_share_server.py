@@ -2453,6 +2453,35 @@ class ShareTokenTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await self._status(f"{self.public}/v/{token}?proxy=1"), 200)
         proxy.assert_not_called()
 
+    async def test_a_probe_overtaken_by_a_rename_announces_nothing(self) -> None:
+        # #246: saving a trim and renaming in the same dialog raced the probe
+        # of the trimmed file, which then found the old name gone.
+        gate, probing = asyncio.Event(), asyncio.Event()
+
+        async def _held_probe(_: Path) -> dict:
+            probing.set()
+            await gate.wait()
+            return {"width": 0, "height": 0, "duration": 0.0, "unreadable": True}
+
+        sent: list[dict] = []
+
+        async def _record(message: dict) -> None:
+            sent.append(message)
+
+        old = self.server._clips["Vice_Clip_1"]
+        self.server._meta.pop("Vice_Clip_1", None)
+        with mock.patch("vice.share._ffprobe", new=_held_probe), \
+             mock.patch.object(self.server, "broadcast", new=_record):
+            late = asyncio.create_task(self.server._broadcast_clip("Vice_Clip_1", old))
+            await probing.wait()
+            await self._rename("Vice_Clip_1", "Renamed")
+            gate.set()
+            await late
+
+        announced = [m["clip"]["slug"] for m in sent if m.get("type") == "clip_saved"]
+        self.assertNotIn("Vice_Clip_1", announced)
+        self.assertNotIn("Vice_Clip_1", self.server._meta)
+
     async def _rename(self, slug: str, name: str) -> str:
         async with self.client.post(f"{self.local}/api/clips/{slug}/rename", json={"name": name}) as resp:
             body = await resp.json()
