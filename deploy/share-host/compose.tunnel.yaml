@@ -1,0 +1,13 @@
+# Use with compose.yaml when your EXISTING cloudflared container is attached
+# to the network named by CLOUDFLARED_NETWORK. This does not create a tunnel.
+services:
+  vice-share:
+    networks:
+      default:
+      cloudflared:
+        aliases:
+          - vice-share
+networks:
+  cloudflared:
+    external: true
+    name: ${CLOUDFLARED_NETWORK:?Set the existing cloudflared Docker network in .env}

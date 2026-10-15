@@ -122,7 +122,9 @@
     "copyLinkBody": "The clipboard was not available, so here is the link to copy by hand.",
     "restartTitle": "Restart Vice to finish",
     "restartBody": "That setting is saved, but it only takes effect once the daemon restarts.",
-    "gotIt": "Got it"
+    "gotIt": "Got it",
+    "nextcloudReady": "Nextcloud sharing",
+    "nextcloudHelp": "Uploads when you share a clip"
   },
   "card": {
     "unreadable": "Unreadable",
@@ -166,7 +168,9 @@
     "discordPreparing": "Making a Discord-sized copy",
     "discordCopied": "Copied for Discord",
     "discordCopiedDetail": "Paste it into a Discord message. It fits the free upload limit.",
-    "errDiscordCopy": "Could not copy the clip for Discord"
+    "errDiscordCopy": "Could not copy the clip for Discord",
+    "nextcloudPreparing": "Preparing the Nextcloud file link…",
+    "errShareLink": "Could not prepare the share link"
   },
   "playlistModal": {
     "editTitle": "Edit playlist",
@@ -329,7 +333,8 @@
     "expand": "Fill the window",
     "shrink": "Back to normal size",
     "expandHint": "Fill the window (F, or double-click)",
-    "shrinkHint": "Back to normal size (F, or Esc)"
+    "shrinkHint": "Back to normal size (F, or Esc)",
+    "shareNextcloud": "Upload to Nextcloud and copy link"
   },
   "trim": {
     "saved": "Clip trimmed and saved",
@@ -491,7 +496,12 @@
     "errScreenshot": "Could not take the screenshot",
     "screenshotNotCopied": "Screenshot saved, but not copied",
     "updating": "Vice is updating to {version}",
-    "updatingDetail": "The recorder restarts to pick up the new version. This window reconnects on its own."
+    "updatingDetail": "The recorder restarts to pick up the new version. This window reconnects on its own.",
+    "shareStage": {
+      "prepare": "Preparing the video preview…",
+      "upload": "Uploading to Nextcloud…",
+      "register": "Creating the clip link…"
+    }
   },
   "about": {
     "title": "About",
@@ -869,7 +879,25 @@
     "imageDirectoryHelp": "Where screenshots are written. Kept apart from clips so an image viewer is not indexing a folder of video files.",
     "soundScreenshot": "Screenshot",
     "shareDiscordFile": "Share copies a Discord file",
-    "shareDiscordFileHelp": "On: the Share button copies the clip itself, shrunk to fit Discord's free upload limit, ready to paste into a message. Off: it copies the share link. Right-click Share for the other one either way."
+    "shareDiscordFileHelp": "On: the Share button copies the clip itself, shrunk to fit Discord's free upload limit, ready to paste into a message. Off: it copies the share link. Right-click Share for the other one either way.",
+    "shareProvider": "Link sharing service",
+    "shareProviderHelp": "Nextcloud uploads each clip when you share it. The link keeps working while this PC is off. Anyone with the link can view or download the video.",
+    "shareBuiltin": "Built-in share server",
+    "nextcloudUrl": "Nextcloud URL",
+    "nextcloudUrlHelp": "The HTTPS address of your externally reachable Nextcloud, including its subfolder if applicable.",
+    "nextcloudUsername": "Nextcloud username",
+    "nextcloudPassword": "Nextcloud app password",
+    "nextcloudPasswordHelp": "Create an app password under Nextcloud → Personal settings → Security. Leave this field empty to keep the saved password.",
+    "nextcloudPasswordStored": "App password saved",
+    "nextcloudFolder": "Nextcloud clip folder",
+    "nextcloudFolderHelp": "For example Videos/Vice. Created automatically. Local deletion keeps uploaded copies; remove them in Nextcloud. Server sharing and expiry policies still apply.",
+    "shareNextcloud": "Nextcloud",
+    "shareNextcloudEmbed": "Nextcloud with Discord preview",
+    "shareHostUrl": "Share host URL",
+    "shareHostUrlHelp": "The public HTTPS URL of your standalone Vice share host. Videos are prepared for embedding and stored in Nextcloud.",
+    "shareHostToken": "Share host API token",
+    "shareHostTokenHelp": "Copy VICE_SHARE_API_TOKEN from the server’s .env file. Leave empty to keep the saved token. This is separate from your Nextcloud app password.",
+    "shareHostTokenStored": "API token saved"
   },
   "whatsNew": {
     "title": "What's new in Vice {version}",

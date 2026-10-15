@@ -39,3 +39,7 @@ node_modules/
 
 # Build output from tools/verify-custom-accent.mjs.
 tools/accent-parity/out/
+
+# Private settings for the standalone share host.
+deploy/share-host/.env
+deploy/share-host/*.sqlite3*

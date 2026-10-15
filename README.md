@@ -220,6 +220,7 @@ clip_name_template    = ""    # optional: e.g. "clip_$date_$time"; empty keeps d
 
 [sharing]
 enabled           = true
+provider          = "builtin" # "builtin", "nextcloud" or "nextcloud_embed"
 port              = 8765  # local control UI (always 127.0.0.1)
 public_port       = 8766  # public share-only server (defaults to port + 1)
 cloudflare_tunnel = true
@@ -247,6 +248,77 @@ Notes:
 - `recording.microphone_source` picks which microphone the mic toggle captures. `default_input` follows the system default; `device:<name>` pins a specific input without changing your system setting.
 - `recording.gsr_args` supports environment/tilde expansion and a `{default_sink_monitor}` placeholder for desktop-audio capture.
 - With the gpu-screen-recorder backend, `recording.encoder` also accepts `h264_vulkan`, `hevc_vulkan`, and `av1_vulkan`. Auto uses an available Vulkan encoder when GSR reports none of its usual hardware codecs. Other systems keep GSR's normal selection. Vulkan encoding requires support from GSR, FFmpeg, and the GPU driver.
+
+### Share clips through Nextcloud
+
+In **Settings → Sharing**, choose **Nextcloud** as the link sharing service.
+Enter your externally reachable Nextcloud HTTPS URL, username, an app password
+from Nextcloud's personal security settings, and a destination folder such as
+`Videos/Vice`. Save and restart Vice to stop the built-in tunnel.
+
+With **Share copies a Discord file** turned off, clicking Share uploads the
+original video and copies a public, read-only Nextcloud link to that single
+file. The Share menu's copy-link action does the same. Nothing uploads just
+because you recorded a clip. Existing uploads and public links are reused when
+you share the same file again, including after restarting Vice or renaming the
+local clip. Editing a clip produces a separate server copy and link.
+
+Nextcloud serves the uploaded file while your gaming PC is off. Local deletion
+does not delete uploaded copies or revoke their links; manage those in Nextcloud.
+Anyone with the public link can access the video, subject to your Nextcloud's
+sharing and expiration policies. Public file sharing must be enabled. Nextcloud
+and reverse proxy upload limits apply. Videos are not transcoded, and browser
+playback depends on their codec; Discord inline embeds are not guaranteed.
+
+Manual configuration in `~/.config/vice/config.toml` is also supported:
+
+```toml
+[sharing]
+enabled = true
+provider = "nextcloud"
+cloudflare_tunnel = false
+share_discord_file = false
+nextcloud_url = "https://cloud.example.com" # include /nextcloud if installed there
+nextcloud_username = "your-username"
+nextcloud_app_password = "your-app-password"
+nextcloud_folder = "Videos/Vice"
+```
+
+Vice saves its config with owner-only permissions (`0600`). The app password is
+stored locally in that config and is never returned by the settings API. Leaving
+the password input empty preserves the saved password.
+
+For a permanent clip page with video metadata for Discord, the optional
+**Nextcloud with Discord preview** mode prepares a browser-compatible H.264/AAC
+copy and registers it with a standalone share host. The files stay in Nextcloud;
+the host runs on your homeserver. See the [Docker Compose and Cloudflare Tunnel
+instructions](deploy/share-host/README.md). Build a self-contained server archive
+with `bash tools/package-share-host.sh`. Deploy that host before selecting this
+mode in Vice. Actual Discord playback still needs to be tested with the public
+domain.
+
+### Use a modified checkout as your daily installation
+
+If Vice and its system dependencies are already installed through your distro,
+run `bash tools/install-local.sh` from this checkout. This requires `uv` and the
+distro's Python build tools. It builds and installs the current code and bundled
+UI into `~/.local/share/vice/local-builds/`, using the distro's Python libraries
+and Qt video codecs. It does not download dependencies or require sudo.
+
+The installer selects that snapshot through `~/.local/bin/vice`, a local Vice
+app-menu entry, and an override for the existing `vice.service`. The enabled
+user service starts at login and keeps running after closing the window.
+Your clips, Nextcloud credentials and other settings keep their existing paths.
+Keep the distro Vice package installed for its system dependencies; package
+upgrades do not replace this local snapshot or its service override.
+
+The installed app runs independently of the checkout, so editing or moving the
+checkout does not change the running installation. To deploy further changes,
+rebuild the UI if needed with `npm run build`, then rerun
+`bash tools/install-local.sh`. This restarts the daemon, so finish any active
+recording session first. Previous snapshots and launcher settings are retained
+with each installation. An upstream install/update through Vice's installer can
+replace this custom setup; use the local installer to retain your changes.
 
 ## Troubleshooting
 
@@ -277,9 +349,9 @@ exec dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY DBUS_S
 
 Restart your compositor session, then `systemctl --user restart vice.service`.
 
-**Share link only works on my local network.** Enable the tunnel in Settings → Sharing and make sure `cloudflared` is installed. cloudflared is the only supported tunnel; if it's missing, Vice shows an error in the UI instead of generating a broken link.
+**Share link only works on my local network.** For the built-in share server, enable the tunnel in Settings → Sharing and make sure `cloudflared` is installed. Alternatively, select Nextcloud to upload clips and keep links available while this PC is off. A `sharing.base_url` override also supports an externally managed reverse proxy, but still serves clips from this PC.
 
-**Clip won't embed on Discord.** Discord only inlines videos up to about 50 MB; trim the clip or lower CRF/resolution. Links also stop working when the Vice daemon restarts, since a fresh tunnel URL is generated each run; repost the link after a restart. MKV clips don't embed; use the default MP4 container for sharing.
+**Clip won't embed on Discord.** With built-in sharing, trim the clip or lower CRF/resolution if it is too large for Discord's inline player. Quick-tunnel links stop working when the Vice daemon restarts, since a fresh tunnel URL is generated each run; repost the link after a restart. MKV clips don't embed; use the default MP4 container for sharing. Nextcloud links open Nextcloud's file page; an inline Discord video is not guaranteed.
 
 **Clips show a grey box inside Vice but play fine in other apps.** The Qt WebEngine build Vice is running has no H.264 decoder. This happens when the installer fell back to the PyPI `PyQt6-WebEngine` wheel, which ships without proprietary codecs; distro packages include them. Install the system package, then reinstall Vice: `sudo apt install python3-pyqt6.qtwebengine` (Debian/Ubuntu/Mint), `sudo dnf install python3-pyqt6-webengine` (Fedora), `sudo zypper install python3-qt6-webengine` (openSUSE), then `./install.sh` again. Since v1.2.6 the app detects this and says so instead of showing a grey rectangle, and the player offers "Open in system player" as a fallback.
 

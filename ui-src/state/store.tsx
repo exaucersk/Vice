@@ -365,9 +365,17 @@ function reduceWs(state: State, msg: WsMessage): State {
           const shareUrl = msg.links[clip.slug];
           return shareUrl === undefined
             ? clip
-            : {...clip, share_url: shareUrl, share_is_public: msg.share_is_public};
+            : {...clip, share_url: shareUrl, share_is_public: msg.share_is_public,
+                share_provider: msg.share_provider ?? clip.share_provider};
         }),
       };
+
+    case 'share_progress':
+      return withEvent(state, {
+        kind: 'info', title: t(`events.shareStage.${msg.stage}`),
+        detail: state.clips.find(clip => clip.slug === msg.slug)?.name,
+        tone: 'neutral', holdMs: 30000,
+      });
 
     case 'session_start':
       return withEvent(
@@ -557,7 +565,22 @@ export function StoreProvider({children}: {children: ReactNode}) {
     async (patch: Record<string, Record<string, unknown>>) => {
       const result = await api.saveConfig(patch);
       if (result.ok === false) throw new Error(result.error || t('events.notSaved'));
-      dispatch({type: 'mergeConfig', patch});
+      // Password inputs are write-only; do not retain them in shared UI state.
+      const safePatch = {...patch};
+      if (patch.sharing) {
+        const sharing = {...patch.sharing};
+        for (const [key, flag] of [
+          ['nextcloud_app_password', 'nextcloud_password_set'],
+          ['share_host_api_token', 'share_host_token_set'],
+        ]) {
+          if (key in sharing) {
+            sharing[flag] = Boolean(sharing[key]);
+            delete sharing[key];
+          }
+        }
+        safePatch.sharing = sharing;
+      }
+      dispatch({type: 'mergeConfig', patch: safePatch});
       return result;
     },
     [],

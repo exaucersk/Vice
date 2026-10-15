@@ -59,6 +59,7 @@ export function Home() {
   const captureAudio = config?.recording?.capture_audio !== false;
   const captureMic = Boolean(config?.recording?.capture_microphone);
   const tunnelOn = Boolean(config?.sharing?.cloudflare_tunnel);
+  const nextcloud = String(config?.sharing?.provider ?? '').startsWith('nextcloud');
   const gameCapture = Boolean(config?.recording?.window_capture);
   // Window pinning is GSR-only, and status.backend is what is actually
   // running rather than the configured "auto".
@@ -212,6 +213,8 @@ export function Home() {
     />
   );
   const linkTile = (
+    nextcloud ? <ActionTile label={t('settings.shareNextcloud')} icon={<GlobeIcon />}
+      onClick={() => dispatch({type: 'setView', view: 'settings'})} /> :
     <Tile
       label={t('home.publicLink')}
       detail={tunnelOn ? (tunnelUrl ? t('home.active') : t('home.starting')) : t('home.off')}
@@ -239,22 +242,22 @@ export function Home() {
     <button
       type="button"
       className="tile tile-readout"
-      onClick={copyTunnel}
-      disabled={!tunnelUrl}
-      aria-label={tunnelUrl ? t('home.copyPublicLink') : t('home.noPublicLinkYet')}>
+      onClick={nextcloud ? () => dispatch({type: 'setView', view: 'settings'}) : copyTunnel}
+      disabled={!nextcloud && !tunnelUrl}
+      aria-label={nextcloud ? t('home.settings') : tunnelUrl ? t('home.copyPublicLink') : t('home.noPublicLinkYet')}>
       <span className="tile-badge" aria-hidden="true">
         <LinkIcon />
       </span>
       <span className="tile-text">
         <b>
-          {tunnelUrl
+          {nextcloud ? t('home.nextcloudReady') : tunnelUrl
             ? tunnelHost(tunnelUrl)
             : tunnelOn
               ? t('home.connecting')
               : t('home.localOnly')}
         </b>
         <span className="tile-mono">
-          {tunnelUrl
+          {nextcloud ? t('home.nextcloudHelp') : tunnelUrl
             ? t('home.tapToCopy')
             : tunnelOn
               ? t('home.cloudflaredStarting')

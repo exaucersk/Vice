@@ -118,7 +118,9 @@
     "copyLinkBody": "Die Zwischenablage war nicht verfügbar, hier ist der Link zum Kopieren von Hand.",
     "restartTitle": "Vice neu starten, um abzuschließen",
     "restartBody": "Die Einstellung ist gespeichert, wirkt aber erst nach einem Neustart des Daemons.",
-    "gotIt": "Verstanden"
+    "gotIt": "Verstanden",
+    "nextcloudReady": "Teilen über Nextcloud",
+    "nextcloudHelp": "Lädt Clips beim Teilen hoch"
   },
   "card": {
     "unreadable": "Nicht lesbar",
@@ -162,7 +164,9 @@
     "discordPreparing": "Kopie in Discord-Größe wird erstellt",
     "discordCopied": "Für Discord kopiert",
     "discordCopiedDetail": "Füg es in eine Discord-Nachricht ein. Es passt ins kostenlose Upload-Limit.",
-    "errDiscordCopy": "Clip konnte nicht für Discord kopiert werden"
+    "errDiscordCopy": "Clip konnte nicht für Discord kopiert werden",
+    "nextcloudPreparing": "Nextcloud-Dateilink wird vorbereitet…",
+    "errShareLink": "Freigabelink konnte nicht erstellt werden"
   },
   "playlistModal": {
     "editTitle": "Playlist bearbeiten",
@@ -324,7 +328,8 @@
     "expand": "Fenster ausfüllen",
     "shrink": "Zurück zur normalen Größe",
     "expandHint": "Fenster ausfüllen (F oder Doppelklick)",
-    "shrinkHint": "Zurück zur normalen Größe (F oder Esc)"
+    "shrinkHint": "Zurück zur normalen Größe (F oder Esc)",
+    "shareNextcloud": "Zu Nextcloud hochladen und Link kopieren"
   },
   "trim": {
     "saved": "Clip gekürzt und gespeichert",
@@ -486,7 +491,12 @@
     "errScreenshot": "Screenshot konnte nicht aufgenommen werden",
     "screenshotNotCopied": "Screenshot gespeichert, aber nicht kopiert",
     "updating": "Vice wird auf {version} aktualisiert",
-    "updatingDetail": "Der Recorder startet neu, um die neue Version zu laden. Dieses Fenster verbindet sich von selbst wieder."
+    "updatingDetail": "Der Recorder startet neu, um die neue Version zu laden. Dieses Fenster verbindet sich von selbst wieder.",
+    "shareStage": {
+      "prepare": "Videovorschau wird vorbereitet…",
+      "upload": "Upload zu Nextcloud…",
+      "register": "Clip-Link wird erstellt…"
+    }
   },
   "about": {
     "title": "Info",
@@ -864,7 +874,25 @@
     "imageDirectoryHelp": "Hier werden Screenshots abgelegt. Sie liegen getrennt von den Clips, damit ein Bildbetrachter nicht einen Ordner voller Videodateien indiziert.",
     "soundScreenshot": "Screenshot",
     "shareDiscordFile": "Teilen kopiert eine Discord-Datei",
-    "shareDiscordFileHelp": "An: „Teilen“ kopiert den Clip selbst, verkleinert auf das kostenlose Upload-Limit von Discord und bereit zum Einfügen in eine Nachricht. Aus: Es kopiert den Link zum Teilen. Per Rechtsklick auf „Teilen“ bekommst du in beiden Fällen die andere Variante."
+    "shareDiscordFileHelp": "An: „Teilen“ kopiert den Clip selbst, verkleinert auf das kostenlose Upload-Limit von Discord und bereit zum Einfügen in eine Nachricht. Aus: Es kopiert den Link zum Teilen. Per Rechtsklick auf „Teilen“ bekommst du in beiden Fällen die andere Variante.",
+    "shareProvider": "Dienst für Freigabelinks",
+    "shareProviderHelp": "Nextcloud lädt einen Clip hoch, wenn du ihn teilst. Der Link funktioniert auch bei ausgeschaltetem PC. Wer den Link hat, kann das Video ansehen oder herunterladen.",
+    "shareBuiltin": "Integrierter Share-Server",
+    "nextcloudUrl": "Nextcloud-URL",
+    "nextcloudUrlHelp": "Die von außen erreichbare HTTPS-Adresse deiner Nextcloud, gegebenenfalls inklusive Unterordner.",
+    "nextcloudUsername": "Nextcloud-Benutzername",
+    "nextcloudPassword": "Nextcloud-App-Passwort",
+    "nextcloudPasswordHelp": "Erstelle ein App-Passwort unter Nextcloud → Persönliche Einstellungen → Sicherheit. Leer lassen, um das gespeicherte Passwort zu behalten.",
+    "nextcloudPasswordStored": "App-Passwort gespeichert",
+    "nextcloudFolder": "Clip-Ordner in Nextcloud",
+    "nextcloudFolderHelp": "Zum Beispiel Videos/Vice. Wird automatisch erstellt. Lokales Löschen behält hochgeladene Kopien; entferne sie in Nextcloud. Freigabe- und Ablaufregeln des Servers gelten weiterhin.",
+    "shareNextcloud": "Nextcloud",
+    "shareNextcloudEmbed": "Nextcloud mit Discord-Vorschau",
+    "shareHostUrl": "Share-Dienst-URL",
+    "shareHostUrlHelp": "Die öffentliche HTTPS-Adresse deines Vice-Share-Dienstes. Videos werden für Einbettungen vorbereitet und in Nextcloud gespeichert.",
+    "shareHostToken": "API-Token des Share-Dienstes",
+    "shareHostTokenHelp": "Kopiere VICE_SHARE_API_TOKEN aus der .env-Datei auf dem Server. Leer lassen, um den gespeicherten Token zu behalten. Er ist unabhängig vom Nextcloud-App-Passwort.",
+    "shareHostTokenStored": "API-Token gespeichert"
   },
   "whatsNew": {
     "title": "Neu in Vice {version}",

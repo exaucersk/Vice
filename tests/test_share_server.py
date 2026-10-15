@@ -179,6 +179,101 @@ class ShareServerSecurityTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status, 200)
             self.assertEqual(resp.headers.get("Content-Type"), "image/jpeg")
 
+    async def test_nextcloud_only_uploads_on_share_and_keeps_local_playback(self) -> None:
+        cfg = self.server.cfg.sharing
+        cfg.provider = "nextcloud"
+        cfg.nextcloud_url = "https://cloud.example.com"
+        cfg.nextcloud_username = "alice"
+        cfg.nextcloud_app_password = "secret"
+        local = self.server.local_base_url()
+        url = "https://cloud.example.com/s/public-token"
+        with mock.patch("vice.share.share_video", new_callable=mock.AsyncMock, return_value=url) as upload:
+            async with self.client.get(f"{local}/api/clips") as resp:
+                clip = (await resp.json())["clips"][0]
+            self.assertEqual(clip["share_provider"], "nextcloud")
+            self.assertEqual(clip["share_url"], "")
+            self.assertTrue(clip["video_url"].startswith("/v/test_clip"))
+            upload.assert_not_called()
+            async with self.client.post(f"{local}/api/clips/test_clip/share") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertEqual(await resp.json(), {"url": url, "is_public": True})
+            upload.assert_awaited_once()
+            self.assertEqual(self.server.share_url("test_clip"), url)
+            self.clip_path.write_bytes(b"a new trim")
+            self.assertEqual(self.server.share_url("test_clip"), "")
+            # A public visitor cannot trigger an authenticated upload.
+            async with self.client.post(
+                f"http://127.0.0.1:{self.public_port}/api/clips/test_clip/share"
+            ) as resp:
+                self.assertEqual(resp.status, 404)
+            self.assertEqual(upload.await_count, 1)
+
+    async def test_failed_nextcloud_sharing_never_copies_a_builtin_fallback(self) -> None:
+        self.server.cfg.sharing.provider = "nextcloud"
+        from vice.nextcloud import NextcloudError
+        with mock.patch("vice.share.share_video", side_effect=NextcloudError("Upload failed")):
+            async with self.client.post(
+                f"{self.server.local_base_url()}/api/clips/test_clip/share"
+            ) as resp:
+                self.assertEqual(resp.status, 502)
+                result = await resp.json()
+        self.assertEqual(result, {"error": "Upload failed"})
+        self.assertEqual(self.server.share_url("test_clip"), "")
+
+    async def test_builtin_share_preparation_preserves_existing_links(self) -> None:
+        async with self.client.post(
+            f"{self.server.local_base_url()}/api/clips/test_clip/share"
+        ) as resp:
+            self.assertEqual(resp.status, 200)
+            self.assertEqual(await resp.json(), {
+                "url": self.server.share_url("test_clip"), "is_public": False,
+            })
+
+    async def test_nextcloud_mode_does_not_start_cloudflared(self) -> None:
+        await self.server.stop()
+        cfg = self.server.cfg
+        cfg.sharing.provider = "nextcloud"
+        cfg.sharing.cloudflare_tunnel = True
+        self.server = ShareServer(cfg)
+        with mock.patch.object(self.server, "_start_tunnel", new_callable=mock.AsyncMock) as tunnel:
+            await self.server.start()
+        tunnel.assert_not_called()
+
+    async def test_config_api_never_returns_the_nextcloud_app_password(self) -> None:
+        self.server.cfg.sharing.nextcloud_app_password = "private-app-password"
+        self.server.cfg.sharing.share_host_api_token = "private-host-api-token-12345678901234567890"
+        with mock.patch("vice.config.load", return_value=self.server.cfg):
+            async with self.client.get(f"{self.server.local_base_url()}/api/config") as resp:
+                text = await resp.text()
+                config = json.loads(text)
+        self.assertNotIn("private-app-password", text)
+        self.assertNotIn("nextcloud_app_password", config["sharing"])
+        self.assertTrue(config["sharing"]["nextcloud_password_set"])
+        self.assertNotIn("private-host-api-token", text)
+        self.assertNotIn("share_host_api_token", config["sharing"])
+        self.assertTrue(config["sharing"]["share_host_token_set"])
+
+    async def test_embed_mode_checks_host_then_prepares_and_publishes(self) -> None:
+        cfg = self.server.cfg.sharing
+        cfg.provider = "nextcloud_embed"
+        cfg.share_host_url = "https://gclips.kimonima.de"
+        cfg.share_host_api_token = "private-host-api-token-12345678901234567890"
+        prepared = object()
+        url = "https://gclips.kimonima.de/c/abcdefghijklmnopqrstuvwx"
+        with mock.patch("vice.share.ShareHostClient") as host, \
+             mock.patch("vice.share.prepare_embed", new_callable=mock.AsyncMock, return_value=prepared) as prepare, \
+             mock.patch("vice.share.publish_embed", new_callable=mock.AsyncMock, return_value=url) as publish:
+            host.return_value.check = mock.AsyncMock()
+            async with self.client.post(f"{self.server.local_base_url()}/api/clips/test_clip/share") as resp:
+                self.assertEqual(resp.status, 200)
+                self.assertEqual((await resp.json())["url"], url)
+            host.return_value.check.assert_awaited_once()
+            prepare.assert_awaited_once()
+            publish.assert_awaited_once()
+            self.assertIs(publish.call_args.args[3], prepared)
+        self.assertEqual(self.server.share_url("test_clip"), url)
+        self.assertFalse(self.server._share_tasks)
+
     async def test_video_urls_are_versioned_and_uncacheable(self) -> None:
         # Slugs are not stable identities: deleted clip numbers get reused and
         # trims rewrite the file in place. A cached /v/ response can therefore
@@ -1606,6 +1701,32 @@ class ShareServerDisplayApiTests(unittest.IsolatedAsyncioTestCase):
 
 @unittest.skipUnless(ShareServer is not None, "aiohttp is not installed")
 class ShareServerConfigApiTests(unittest.IsolatedAsyncioTestCase):
+    async def test_nextcloud_credentials_are_preserved_on_partial_saves_and_apply_live(self):
+        cfg = Config(sharing=SharingConfig(
+            provider="nextcloud", nextcloud_url="https://cloud.example.com",
+            nextcloud_username="alice", nextcloud_app_password="keep-this-secret",
+        ))
+        server = ShareServer(cfg)
+        with mock.patch("vice.config.load", return_value=cfg), mock.patch("vice.config.save") as saved:
+            response = await server._api_set_config(_JsonRequest({
+                "sharing": {"nextcloud_folder": "Videos/Vice"},
+            }))
+        self.assertEqual(response.status, 200)
+        self.assertFalse(json.loads(response.text)["restart_required"])
+        self.assertEqual(saved.call_args.args[0].sharing.nextcloud_app_password, "keep-this-secret")
+        self.assertEqual(server.cfg.sharing.nextcloud_folder, "Videos/Vice")
+
+    async def test_nextcloud_rejects_missing_credentials_without_saving(self):
+        cfg = Config()
+        server = ShareServer(cfg)
+        with mock.patch("vice.config.load", return_value=cfg), mock.patch("vice.config.save") as saved:
+            response = await server._api_set_config(_JsonRequest({
+                "sharing": {"provider": "nextcloud", "nextcloud_url": "https://cloud.example.com"},
+            }))
+        self.assertEqual(response.status, 400)
+        saved.assert_not_called()
+        self.assertEqual(server.cfg.sharing.provider, "builtin")
+
     async def test_api_set_config_saves_clip_presets_and_grows_buffer(self) -> None:
         server = ShareServer(
             Config(

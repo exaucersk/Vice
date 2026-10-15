@@ -54,6 +54,15 @@ export interface Draft {
   port: number;
   cloudflareTunnel: boolean;
   shareDiscordFile: boolean;
+  shareProvider: string;
+  nextcloudUrl: string;
+  nextcloudUsername: string;
+  nextcloudPassword: string;
+  nextcloudPasswordSet: boolean;
+  nextcloudFolder: string;
+  shareHostUrl: string;
+  shareHostToken: string;
+  shareHostTokenSet: boolean;
 
   discordEnabled: boolean;
   discordGameIcons: boolean;
@@ -158,6 +167,15 @@ export function draftFromConfig(config: Config): Draft {
     port: num(s.port, 8765),
     cloudflareTunnel: s.cloudflare_tunnel !== false,
     shareDiscordFile: Boolean(s.share_discord_file),
+    shareProvider: str(s.provider, 'builtin'),
+    nextcloudUrl: str(s.nextcloud_url, ''),
+    nextcloudUsername: str(s.nextcloud_username, ''),
+    nextcloudPassword: '',
+    nextcloudPasswordSet: Boolean(s.nextcloud_password_set),
+    nextcloudFolder: str(s.nextcloud_folder, 'Vice'),
+    shareHostUrl: str(s.share_host_url, ''),
+    shareHostToken: '',
+    shareHostTokenSet: Boolean(s.share_host_token_set),
 
     discordEnabled: Boolean(d.enabled),
     discordGameIcons: d.game_icons !== false,
@@ -245,6 +263,14 @@ export function patchFromDraft(draft: Draft): Record<string, Record<string, unkn
       port: Number(draft.port),
       cloudflare_tunnel: draft.cloudflareTunnel,
       share_discord_file: draft.shareDiscordFile,
+      provider: draft.shareProvider,
+      nextcloud_url: draft.nextcloudUrl.trim().replace(/\/+$/, ''),
+      nextcloud_username: draft.nextcloudUsername.trim(),
+      nextcloud_folder: draft.nextcloudFolder.trim(),
+      // An untouched password field must preserve the stored app password.
+      ...(draft.nextcloudPassword ? {nextcloud_app_password: draft.nextcloudPassword} : {}),
+      share_host_url: draft.shareHostUrl.trim().replace(/\/+$/, ''),
+      ...(draft.shareHostToken ? {share_host_api_token: draft.shareHostToken} : {}),
     },
     updates: {check_on_start: draft.checkForUpdates},
     notifications: {

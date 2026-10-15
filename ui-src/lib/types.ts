@@ -23,6 +23,7 @@ export interface Clip {
   unreadable_reason: string;
   share_url: string;
   share_is_public: boolean;
+  share_provider?: 'builtin' | 'nextcloud' | 'nextcloud_embed';
   /** Already carries a content revision, so it can be used as a cache key. */
   video_url: string;
   thumb_url: string;
@@ -135,7 +136,8 @@ export type WsMessage =
   | ({type: 'status'} & Partial<Status>)
   | {type: 'tunnel_url'; url: string}
   | {type: 'tunnel_error'; error?: string}
-  | {type: 'share_links_changed'; links: Record<string, string>; share_is_public: boolean}
+  | {type: 'share_links_changed'; links: Record<string, string>; share_is_public: boolean; share_provider?: Clip['share_provider']}
+  | {type: 'share_progress'; slug: string; stage: 'prepare' | 'upload' | 'register'}
   | {type: 'session_start'}
   | {type: 'session_stop'}
   | {type: 'session_highlight'; time?: number}

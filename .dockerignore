@@ -1,0 +1,13 @@
+# Minimal context for the standalone share host. Never send local credentials,
+# desktop dependencies, recordings or the working checkout to the builder.
+*
+!vice/
+vice/*
+!vice/__init__.py
+!vice/share_host.py
+!deploy/
+deploy/*
+!deploy/share-host/
+deploy/share-host/*
+!deploy/share-host/Dockerfile
+!deploy/share-host/requirements.txt

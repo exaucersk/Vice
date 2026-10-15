@@ -87,13 +87,13 @@ export function ShareModal({
       <div className="share-sheet">
         <div className="share-link-row">
           <span className="share-label">{t('viewer.shareHighQuality')}</span>
-          {link ? (
+          {link || shown.share_provider?.startsWith('nextcloud') ? (
             <button
               type="button"
               className="share-link mono"
               title={t('viewer.shareCopyHint')}
               onClick={() => onCopyLink(shown)}>
-              {link}
+              {link || t('viewer.shareNextcloud')}
             </button>
           ) : (
             <p className="share-nolink">{t('viewer.shareNoLink')}</p>

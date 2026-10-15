@@ -289,6 +289,7 @@ export function Settings() {
     const patch = patchFromDraft({...draft, bufferDuration: buffer});
     const sharingChanged =
       Number(patch.sharing.port) !== Number(config?.sharing?.port ?? 8765) ||
+      patch.sharing.provider !== (config?.sharing?.provider ?? 'builtin') ||
       Boolean(patch.sharing.cloudflare_tunnel) !== Boolean(config?.sharing?.cloudflare_tunnel !== false);
 
     setSaving(true);
@@ -311,7 +312,11 @@ export function Settings() {
         );
       }
       if (result.restart_required && sharingChanged) setRestartNeeded(true);
-      setBaseline(JSON.stringify(patch));
+      const savedDraft = {...draft, bufferDuration: buffer, nextcloudPassword: '', shareHostToken: '',
+        nextcloudPasswordSet: draft.nextcloudPasswordSet || Boolean(draft.nextcloudPassword),
+        shareHostTokenSet: draft.shareHostTokenSet || Boolean(draft.shareHostToken)};
+      setDraft(savedDraft);
+      setBaseline(JSON.stringify(patchFromDraft(savedDraft)));
     } catch (err) {
       fail(t('settings.errSave'), err);
     } finally {
@@ -889,6 +894,50 @@ export function Settings() {
 
         {/* ── Sharing ───────────────────────────────────────────── */}
         <Card id="sharing" title={t('settings.secSharing')} register={register('sharing')}>
+          <Row label={t('settings.shareProvider')} help={t('settings.shareProviderHelp')}>
+            <Select label={t('settings.shareProvider')} value={draft.shareProvider}
+              options={[
+                ['builtin', t('settings.shareBuiltin')],
+                ['nextcloud', t('settings.shareNextcloud')],
+                ['nextcloud_embed', t('settings.shareNextcloudEmbed')],
+              ]}
+              onChange={shareProvider => update({shareProvider, shareDiscordFile: false,
+                ...(shareProvider !== 'builtin' ? {cloudflareTunnel: false} : {})})} />
+          </Row>
+
+          {draft.shareProvider.startsWith('nextcloud') ? <>
+            <Row label={t('settings.nextcloudUrl')} help={t('settings.nextcloudUrlHelp')}>
+              <TextField label={t('settings.nextcloudUrl')} value={draft.nextcloudUrl}
+                placeholder="https://cloud.example.com" wide
+                onChange={nextcloudUrl => update({nextcloudUrl})} />
+            </Row>
+            <Row label={t('settings.nextcloudUsername')}>
+              <TextField label={t('settings.nextcloudUsername')} value={draft.nextcloudUsername}
+                onChange={nextcloudUsername => update({nextcloudUsername})} />
+            </Row>
+            <Row label={t('settings.nextcloudPassword')} help={t('settings.nextcloudPasswordHelp')}>
+              <TextField label={t('settings.nextcloudPassword')} value={draft.nextcloudPassword}
+                type="password" wide
+                placeholder={draft.nextcloudPasswordSet ? t('settings.nextcloudPasswordStored') : ''}
+                onChange={nextcloudPassword => update({nextcloudPassword})} />
+            </Row>
+            <Row label={t('settings.nextcloudFolder')} help={t('settings.nextcloudFolderHelp')}>
+              <TextField label={t('settings.nextcloudFolder')} value={draft.nextcloudFolder}
+                placeholder="Vice" onChange={nextcloudFolder => update({nextcloudFolder})} />
+            </Row>
+            {draft.shareProvider === 'nextcloud_embed' ? <>
+              <Row label={t('settings.shareHostUrl')} help={t('settings.shareHostUrlHelp')}>
+                <TextField label={t('settings.shareHostUrl')} value={draft.shareHostUrl} wide
+                  placeholder="https://gclips.kimonima.de"
+                  onChange={shareHostUrl => update({shareHostUrl})} />
+              </Row>
+              <Row label={t('settings.shareHostToken')} help={t('settings.shareHostTokenHelp')}>
+                <TextField label={t('settings.shareHostToken')} value={draft.shareHostToken} wide type="password"
+                  placeholder={draft.shareHostTokenSet ? t('settings.shareHostTokenStored') : ''}
+                  onChange={shareHostToken => update({shareHostToken})} />
+              </Row>
+            </> : null}
+          </> : <>
           <Row label={t('settings.port')} help={t('settings.portHelp')}>
             <TextField
               label={t('settings.port')}
@@ -911,6 +960,7 @@ export function Settings() {
             />
           </Row>
 
+          </>}
           <Row
             label={t('settings.shareDiscordFile')}
             help={t('settings.shareDiscordFileHelp')}>

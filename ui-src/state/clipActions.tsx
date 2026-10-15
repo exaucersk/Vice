@@ -150,8 +150,9 @@ export function useClipActions(): {actions: ClipActions; overlays: ReactNode} {
             {id: 'rename', label: t('card.rename'), onSelect: () => setRenaming(menuClip.slug)},
             {
               id: 'copy-link',
-              label: menuClip.share_url ? t('card.copyShareLink') : t('card.noShareLink'),
-              disabled: !menuClip.share_url,
+              label: menuClip.share_url || menuClip.share_provider?.startsWith('nextcloud')
+                ? t('card.copyShareLink') : t('card.noShareLink'),
+              disabled: !menuClip.share_url && !menuClip.share_provider?.startsWith('nextcloud'),
               onSelect: () => copyLink(menuClip),
             },
             {id: 'copy-file', label: t('card.copyVideoShort'), onSelect: () => copyFile(menuClip)},

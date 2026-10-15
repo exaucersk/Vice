@@ -48,6 +48,8 @@ from .editor import (DISCORD_MAX_BYTES, DiscordTooLarge, EditorProjectStore,
                      sanitize_export_name, text_file_contents,
                      validate_project)
 from .media import communicate_with_timeout, probe_media, probe_media_detailed
+from .nextcloud import NextcloudError, share_key, share_video, validate_settings
+from .share_embed import ShareHostClient, prepare_embed, publish_embed
 from .playlists import (IMAGE_PREFIX, PlaylistStore, build_tag_index,
                         image_slug)
 from .recorder import (IMAGE_EXTS, KEEP_ALL_STREAMS, _available_encoders,
@@ -968,6 +970,9 @@ class ShareServer:
         self._views = _load_views()
         self._share_tokens = _load_share_tokens()
         self._share_slugs = {token: slug for slug, token in self._share_tokens.items()}
+        self._nextcloud_links: dict[tuple, str] = {}
+        self._nextcloud_lock = asyncio.Lock()
+        self._share_tasks: set[asyncio.Task] = set()
         self.editor_project = EditorProjectStore()
         self._exports = ExportManager(self.broadcast)
 
@@ -1026,6 +1031,7 @@ class ShareServer:
         # REST
         r.add_get("/api/clips",              self._api_clips)
         r.add_get("/api/clips/{slug}",       self._api_clip_info)
+        r.add_post("/api/clips/{slug}/share", self._api_share_clip)
         r.add_delete("/api/clips/{slug}",    self._api_delete)
         r.add_post("/api/clips/{slug}/trim",              self._api_trim)
         r.add_post("/api/clips/{slug}/rename",            self._api_rename)
@@ -1139,11 +1145,15 @@ class ShareServer:
                     exc,
                 )
 
-        if self.cfg.sharing.cloudflare_tunnel:
+        if self.cfg.sharing.cloudflare_tunnel and self.cfg.sharing.provider == "builtin":
             await self._start_tunnel(public_port)
 
     async def stop(self) -> None:
         self._proxy_stopping = True
+        share_tasks = list(self._share_tasks)
+        for task in share_tasks:
+            task.cancel()
+        await asyncio.gather(*share_tasks, return_exceptions=True)
         tasks = list(self._proxy_tasks)
         for task in tasks:
             task.cancel()
@@ -1244,9 +1254,64 @@ class ShareServer:
             _save_share_tokens(self._share_tokens)
 
     def share_url(self, slug: str) -> str:
-        base = self.public_base_url() or self.local_base_url() or ""
         token = self._share_tokens.get(slug) or self._issue_share_token(slug)
+        if self.cfg.sharing.provider in {"nextcloud", "nextcloud_embed"}:
+            path = self._clips.get(slug)
+            if path:
+                try:
+                    return self._nextcloud_links.get(share_key(self.cfg.sharing, path, token), "")
+                except OSError:
+                    pass
+            return ""
+        base = self.public_base_url() or self.local_base_url() or ""
         return f"{base}/c/{token}"
+
+    async def _api_share_clip(self, req: web.Request) -> web.Response:
+        slug = req.match_info["slug"]
+        path = self._clips.get(slug)
+        if not path or not path.is_file():
+            raise web.HTTPNotFound()
+        if self.cfg.sharing.provider not in {"nextcloud", "nextcloud_embed"}:
+            return web.json_response({"url": self.share_url(slug),
+                                      "is_public": self.public_is_reachable()})
+        task = asyncio.current_task()
+        self._share_tasks.add(task)
+        try:
+            async with self._nextcloud_lock:
+                # Snapshot settings: changing accounts while uploading must
+                # not attach a link from one server to another server's key.
+                cfg = copy.deepcopy(self.cfg.sharing)
+                if cfg.provider not in {"nextcloud", "nextcloud_embed"}:
+                    raise NextcloudError("Sharing settings changed. Please share the clip again.")
+                token = self._share_tokens.get(slug)
+                if token is None or self._clips.get(slug) != path:
+                    raise NextcloudError("The clip changed. Please share it again.")
+                key = share_key(cfg, path, token)
+                if cfg.provider == "nextcloud_embed":
+                    await ShareHostClient(cfg).check()
+
+                    async def progress(stage):
+                        await self.broadcast({"type": "share_progress", "slug": slug, "stage": stage})
+
+                    await progress("prepare")
+                    async with self._proxy_lock:
+                        prepared = await prepare_embed(path, token, PROXY_DIR)
+                    url = await publish_embed(cfg, path, token, prepared, progress)
+                else:
+                    url = await share_video(cfg, path, token)
+                self._nextcloud_links[key] = url
+                if (self._clips.get(slug) == path and path.exists()
+                        and self._share_tokens.get(slug) == token
+                        and share_key(cfg, path, token) == key):
+                    await self.broadcast({"type": "clip_saved", "clip": self._clip_json(
+                        slug, path, self._meta.get(slug, {}),
+                    )})
+            return web.json_response({"url": url, "is_public": True})
+        except (NextcloudError, OSError) as exc:
+            detail = str(exc) if isinstance(exc, NextcloudError) else "The local clip could not be read."
+            return web.json_response({"error": detail}, status=502)
+        finally:
+            self._share_tasks.discard(task)
 
     def _slug_for_ref(self, ref: str, *, allow_slug: bool) -> Optional[str]:
         """The clip a URL segment names, or None.
@@ -1277,7 +1342,8 @@ class ShareServer:
         return {
             "type": "share_links_changed",
             "links": {slug: self.share_url(slug) for slug in self._clips},
-            "share_is_public": self.public_is_reachable(),
+            "share_is_public": self.cfg.sharing.provider in {"nextcloud", "nextcloud_embed"} or self.public_is_reachable(),
+            "share_provider": self.cfg.sharing.provider,
         }
 
     async def _broadcast_share_links(self) -> None:
@@ -1358,7 +1424,8 @@ class ShareServer:
             # Keep share links public, but serve media via local relative URLs
             # so the app UI never fetches video through an external tunnel.
             "share_url":  self.share_url(slug),
-            "share_is_public": self.public_is_reachable(),
+            "share_is_public": self.cfg.sharing.provider in {"nextcloud", "nextcloud_embed"} or self.public_is_reachable(),
+            "share_provider": self.cfg.sharing.provider,
             # Cache-bust media URLs by clip file identity: deleted clip numbers
             # get reused (Vice_Clip_5 can name a brand-new file), and a trim
             # rewrites the file under the same slug, without the version the
@@ -2522,7 +2589,12 @@ class ShareServer:
 
     async def _api_get_config(self, _: web.Request) -> web.Response:
         from .config import load as load_cfg
-        return web.json_response(asdict(load_cfg()))
+        payload = asdict(load_cfg())
+        password = payload["sharing"].pop("nextcloud_app_password", "")
+        payload["sharing"]["nextcloud_password_set"] = bool(password)
+        token = payload["sharing"].pop("share_host_api_token", "")
+        payload["sharing"]["share_host_token_set"] = bool(token)
+        return web.json_response(payload)
 
     async def _api_get_displays(self, req: web.Request) -> web.Response:
         backend = (req.query.get("backend") or self.cfg.recording.backend or "auto").strip() or "auto"
@@ -2628,7 +2700,8 @@ class ShareServer:
         )
         try:
             validate_hotkeys(new_cfg.hotkeys)
-        except ValueError as exc:
+            validate_settings(new_cfg.sharing)
+        except (ValueError, NextcloudError) as exc:
             return web.json_response({"ok": False, "error": str(exc)}, status=400)
         ensure_buffer_covers_clip_presets(new_cfg)
         clamp_recording_limits(new_cfg)
@@ -2645,6 +2718,11 @@ class ShareServer:
         new_sharing = copy.deepcopy(new_cfg.sharing)
         old_sharing.embed_color = new_sharing.embed_color = ""
         old_sharing.share_discord_file = new_sharing.share_discord_file = False
+        # Nextcloud credentials are read on every explicit share action.
+        for name in ("nextcloud_url", "nextcloud_username", "nextcloud_app_password", "nextcloud_folder",
+                     "share_host_url", "share_host_api_token"):
+            setattr(old_sharing, name, "")
+            setattr(new_sharing, name, "")
         restart_required = (
             old_sharing != new_sharing
             or old_cfg.recording.gsr_args != new_cfg.recording.gsr_args
@@ -2681,6 +2759,8 @@ class ShareServer:
         # folder's contents now, not after a restart.
         if image_dir_changed and not apply_error:
             self.rescan_images()
+        if old_cfg.sharing != new_cfg.sharing and not apply_error:
+            await self._broadcast_share_links()
 
         if apply_error:
             return web.json_response({

@@ -169,7 +169,7 @@ export function TextField({
   label: string;
   mono?: boolean;
   wide?: boolean;
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'password';
   min?: number;
   max?: number;
 }) {
@@ -179,6 +179,7 @@ export function TextField({
       data-mono={mono || undefined}
       data-wide={wide || undefined}
       type={type}
+      autoComplete={type === 'password' ? 'new-password' : undefined}
       min={min}
       max={max}
       value={value}

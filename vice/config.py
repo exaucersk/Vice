@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field, fields, asdict
@@ -212,6 +213,14 @@ class SharingConfig:
     cloudflare_tunnel: bool = True
     # Override the public base URL shown in share links (e.g. if behind reverse proxy).
     base_url: Optional[str] = None
+    # "nextcloud_embed" adds a standalone public host for Discord metadata.
+    provider: str = "builtin"
+    nextcloud_url: str = ""
+    nextcloud_username: str = ""
+    nextcloud_app_password: str = field(default="", repr=False)
+    nextcloud_folder: str = "Vice"
+    share_host_url: str = ""
+    share_host_api_token: str = field(default="", repr=False)
     # Accent color for share-page embeds (Discord sidebar strip etc.).
     # Synced from the UI theme; must be a #rrggbb hex value.
     embed_color: str = "#0099ff"
@@ -557,5 +566,10 @@ def save(cfg: Config) -> None:
             return {k: _drop_none(v) for k, v in d.items() if v is not None}
         return d
 
-    with CONFIG_PATH.open("wb") as fh:
+    # The config can contain an app password. Restrict an existing file before
+    # writing as well as setting the mode when creating a new one.
+    fd = os.open(CONFIG_PATH, os.O_WRONLY | os.O_CREAT, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "wb") as fh:
+        fh.truncate(0)
         tomli_w.dump(_drop_none(data), fh)

@@ -61,6 +61,8 @@ export const api = {
   // The list endpoints wrap their payload in an envelope. Unwrapped here so
   // callers only ever see the list.
   clips: async () => (await request<{clips: Clip[]}>('/api/clips')).clips,
+  prepareShareLink: (slug: string) =>
+    post<{url: string; is_public: boolean}>(`/api/clips/${enc(slug)}/share`),
   deleteClip: (slug: string) => request<void>(`/api/clips/${enc(slug)}`, {method: 'DELETE'}),
   renameClip: (slug: string, name: string) => post<Clip>(`/api/clips/${enc(slug)}/rename`, {name}),
   revealClip: (slug: string) => post<void>(`/api/clips/${enc(slug)}/reveal`),

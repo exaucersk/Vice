@@ -4,6 +4,9 @@ import type {Clip} from './types';
 import type {IslandEvent} from '../state/store';
 import {t} from './i18n';
 
+// Repeated clicks while an upload is running join that request.
+const preparing = new Map<string, ReturnType<typeof api.prepareShareLink>>();
+
 /**
  * Copy a clip's share link, saying plainly when the link only works on this
  * network. A LAN address looks identical to a real share link right up until
@@ -17,20 +20,32 @@ export async function copyShareLink(
   notify: (event: Omit<IslandEvent, 'id'>) => void,
   onManualCopy: (url: string) => void,
 ): Promise<void> {
-  if (!clip.share_url) {
-    notify({
-      kind: 'error',
-      title: t('card.noShareLinkYet'),
-      tone: 'error',
-      holdMs: 4000,
-    });
+  let link: {url: string; is_public: boolean};
+  try {
+    if (clip.share_provider?.startsWith('nextcloud')) {
+      notify({kind: 'info', title: t('card.nextcloudPreparing'), tone: 'neutral', holdMs: 30000});
+    }
+    let pending = preparing.get(clip.slug);
+    if (!pending) {
+      pending = api.prepareShareLink(clip.slug);
+      preparing.set(clip.slug, pending);
+    }
+    try {
+      link = await pending;
+    } finally {
+      if (preparing.get(clip.slug) === pending) preparing.delete(clip.slug);
+    }
+    if (!link.url) throw new Error(t('card.noShareLinkYet'));
+  } catch (err) {
+    notify({kind: 'error', title: t('card.errShareLink'), detail: (err as Error).message,
+      tone: 'error', holdMs: 8000});
     return;
   }
-  if (!(await copyToClipboard(clip.share_url))) {
-    onManualCopy(clip.share_url);
+  if (!(await copyToClipboard(link.url))) {
+    onManualCopy(link.url);
     return;
   }
-  if (clip.share_is_public === false) {
+  if (link.is_public === false) {
     notify({
       kind: 'info',
       title: t('card.linkCopiedLocal'),
