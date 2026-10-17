@@ -84,7 +84,8 @@ class NextcloudUploadTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(body["shareType"], "3")
             self.assertEqual(body["permissions"], "1")
             self.assertIn(body["path"], self.files)
-            data = {"share_type": 3, "permissions": 1, "password": None,
+            # Real servers add the share bit (16) to a requested read-only link.
+            data = {"share_type": 3, "permissions": 17, "password": None,
                     "url": f"{self.base}/s/public0000000{len(self.shares)}"}
             self.shares.setdefault(body["path"], []).append(data)
         else:

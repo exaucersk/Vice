@@ -178,7 +178,8 @@ async def share_file(cfg: SharingConfig, path: Path, token: str,
                 raise NextcloudError("Nextcloud returned an invalid list of file links.")
             for share in shares:
                 if (isinstance(share, dict) and str(share.get("share_type")) == "3"
-                        and str(share.get("permissions")) == "1"
+                        # Nextcloud reports a read-only link as 17 (read + share).
+                        and str(share.get("permissions")) in {"1", "17"}
                         and not share.get("password")):
                     return _public_url(share)
             share = await _ocs(session, "POST", shares_url, data={
