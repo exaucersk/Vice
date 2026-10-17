@@ -250,7 +250,7 @@ def create_app(cfg: HostConfig) -> web.Application:
                         await response.write(block)
                 await response.write_eof()
                 return response
-        except (ClientError, asyncio.TimeoutError, ConnectionResetError):
+        except (ClientError, asyncio.TimeoutError, ConnectionError):
             if response is not None and response.prepared:
                 response.force_close()
                 if req.transport:
